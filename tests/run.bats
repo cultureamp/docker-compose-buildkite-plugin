@@ -886,6 +886,7 @@ export BUILDKITE_JOB_ID=1111
 }
 
 @test "Run with git-mirrors" {
+@test "Run with ssh-agent" {
   export BUILDKITE_JOB_ID=1111
   export BUILDKITE_PLUGIN_DOCKER_COMPOSE_RUN=myservice
   export BUILDKITE_PIPELINE_SLUG=test
@@ -899,6 +900,16 @@ export BUILDKITE_JOB_ID=1111
     "-f docker-compose.yml -p buildkite1111 build --pull myservice : echo built myservice" \
     "-f docker-compose.yml -p buildkite1111 up -d --scale myservice=0 : echo ran myservice dependencies" \
     "-f docker-compose.yml -p buildkite1111 run --name buildkite1111_myservice_build_1 -v /tmp/sample-mirror:/tmp/sample-mirror:ro --rm myservice /bin/sh -e -c 'echo hello world' : echo ran myservice"
+  export IS_IN_TEST=yes_in_test
+  export SSH_AUTH_SOCK=/tmp/fake-socket
+  export BUILDKITE_COMMAND="echo $SSH_AUTH_SOCK"
+  export BUILDKITE_PLUGIN_DOCKER_COMPOSE_MOUNT_SSH_AGENT=true
+
+
+  stub docker-compose \
+    "-f docker-compose.yml -p buildkite1111 build --pull myservice : echo /tmp/fake-socket : built myservice" \
+    "-f docker-compose.yml -p buildkite1111 up -d --scale myservice=0 : echo ran myservice dependencies" \
+    "-f docker-compose.yml -p buildkite1111 run --name buildkite1111_myservice_build_1 -e SSH_AUTH_SOCK=/ssh-agent --volume /tmp/fake-socket:/ssh-agent --volume /root/.ssh/known_hosts:/root/.ssh/known_hosts --rm myservice /bin/sh -e -c 'echo /tmp/fake-socket' : echo ran myservice"
 
   stub buildkite-agent \
     "meta-data exists docker-compose-plugin-built-image-tag-myservice : exit 1"
